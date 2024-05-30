@@ -65,7 +65,7 @@ def app():
     # Column values
     gptwo_phenos = ['PD', 'Control', 'Prodromal',
                     'PSP', 'CBD/CBS', 'MSA', 'DLB', 'AD', 'FTD', "VaD", "VaPD"
-                    'Population Control', 'Undetermined-MCI', 'Undetermined-Dementia', 'Mix', 'Other']    
+                    'Population Control', 'Undetermined-MCI', 'Undetermined-Dementia', 'Mix', 'Other']
     allowed_samples = ['Blood (EDTA)', 'Blood (ACD)', 'Blood', 'DNA', 'DNA from Brain',
                         'DNA from blood', 'DNA from FFPE', 'RNA', 'Saliva',
                         'Buccal Swab', 'T-25 Flasks (Amniotic)', 'FFPE Slide',
@@ -474,7 +474,7 @@ def app():
             st.text('=== study_arm x study_type x diagnosis x GP2_phenotype===')
             pheno_tab=df.groupby(['study_arm', 'study_type', 'diagnosis', 'GP2_phenotype']).size().rename('N').reset_index()
             st.table(pheno_tab)
-
+        
         # Confirm mapping looks good
         ph_conf = st.checkbox('Confirm Phenotype?')
         if ph_conf:
@@ -482,7 +482,14 @@ def app():
                 st.error('Please assign the phenotype for all the samples')
                 st.stop()
             else:
-                st.info('Thank you')
+                # Check now if there as some controls with unexpected AAO   
+                df_control_aao = df[ (df['GP2_phenotype'].isin(['Control', 'Population Control'])) & (~df['age_of_onset'].isna()) ].copy()
+                if not df_control_aao.empty:
+                    st.error("We have detected some controls that have age of onset values. This is not possible. Please correct")
+                    aggridPlotter(df_control_aao[['study','study_type','sample_id','clinical_id', 'GP2_phenotype', 'age_of_onset']] )
+                    st.stop()
+                else:
+                    st.info('Thank you')
 
         # Derive phenotype for QC variable
         df['GP2_phenotype_for_qc'] = df['GP2_phenotype'].apply(lambda pheno: pheno if pheno in ['PD','Control'] else 'Other')
@@ -739,6 +746,7 @@ def app():
         jumptwice()
         st.subheader('Numeric Values')
         numerics_cols = ['DNA_volume', 'DNA_conc', 'r260_280','age', 'age_of_onset', 'age_at_diagnosis', 'age_at_last_follow_up','age_at_death']
+        age_cols = ['age', 'age_of_onset', 'age_at_diagnosis']
         for v in numerics_cols:
             if df.dtypes[v] not in ['float64', 'int64']:
                 st.error(f'{v} is not numeric')
@@ -749,6 +757,12 @@ def app():
                 st.error(f'{v} has unexpected negative values.  Please correct the values we are showing above')
                 aggridPlotter(df[df[v] < 0][ ['study','study_type','sample_id','clinical_id'] + [v] ])
                 st.stop()
+            if v in age_cols:
+                if ((df[v] < 20) | (df[v] > 100)).any():
+                    st.error(f'{v} has unexpected high or low values.  Please correct the values we are showing above')
+                    aggridPlotter(df[(df[v] < 20) | (df[v] > 100)][ ['study','study_type','sample_id','clinical_id'] + [v] ])
+                    st.stop()
+
         st.text('Numeric chek --> OK.')
         st.text('You can check the distribution with the button below')
         if st.button("Check Distribution"):
