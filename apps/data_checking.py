@@ -41,7 +41,7 @@ def app():
     data_file = st.sidebar.file_uploader("Upload Your Sample manifest (CSV/XLSX)", type=['xlsx', 'csv'])
     studycode = get_studycode()
     choice = st.sidebar.selectbox("Genotyping site", 
-                                  ["For Fulgent", "For NIH", "For LGC", "For UCL", "For DZNE"],
+                                  ["For Fulgent", "For Psomagen", "For NIH", "For LGC", "For UCL", "For DZNE"],
                                   index=None)
 
     ph_conf = ''
@@ -65,7 +65,7 @@ def app():
     # Column values
     gptwo_phenos = ['PD', 'Control', 'Prodromal',
                     'PSP', 'CBD/CBS', 'MSA', 'DLB', 'AD', 'FTD', "VaD", "VaPD"
-                    'Population Control', 'Undetermined-MCI', 'Undetermined-Dementia', 'Mix', 'Other']
+                    'Population Control', 'Undetermined-MCI', 'Undetermined-Dementia', 'Mix', 'LBD', 'Other']
     allowed_samples = ['Blood (EDTA)', 'Blood (ACD)', 'Blood', 'DNA', 'DNA from Brain',
                         'DNA from blood', 'DNA from FFPE', 'RNA', 'Saliva',
                         'Buccal Swab', 'T-25 Flasks (Amniotic)', 'FFPE Slide',
@@ -114,7 +114,7 @@ def app():
         else:
             st.markdown("**Genotyping_site** successfully added to the sample manifest")
         
-        if choice=='For Fulgent':
+        if choice in ['For Fulgent', 'For Psomagen']:
             required_cols = required_cols + fulgent_cols
         if choice=='For NIH':
             required_cols = required_cols + ['Plate_name', 'Plate_position']
