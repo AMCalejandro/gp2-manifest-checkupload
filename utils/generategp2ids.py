@@ -120,7 +120,7 @@ def getgp2idsv2(dfproc, n, study_code):
 
     df_nodups = dfproc[~dfproc.duplicated(keep=False, subset=['clinical_id'])].sort_values('clinical_id').reset_index(drop = True).copy()
 
-    if not df_nodups.empty():
+    if not df_nodups.empty:
         if df_dups.shape[0]>0:
             n =  len(list(dupids_mapper.values())) + n
         else:
