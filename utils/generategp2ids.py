@@ -102,7 +102,9 @@ def master_remove(studies, data):
 
 
 def getgp2idsv2(dfproc, n, study_code):
+    dfproc = dfproc.sort_values('sample_id')
     df_dups = dfproc[dfproc.duplicated(keep=False, subset=['clinical_id'])].sort_values('clinical_id').reset_index(drop = True).copy()
+    
     if df_dups.shape[0]>0:
         dupids_mapper = dict(zip(df_dups.clinical_id.unique(),
                             [num+n for num in range(len(df_dups.clinical_id.unique()))]))
@@ -118,28 +120,31 @@ def getgp2idsv2(dfproc, n, study_code):
 
     df_nodups = dfproc[~dfproc.duplicated(keep=False, subset=['clinical_id'])].sort_values('clinical_id').reset_index(drop = True).copy()
 
-    if df_dups.shape[0]>0:
-        n =  len(list(dupids_mapper.values())) + n
-    else:
-        n = n
+    if not df_nodups.empty():
+        if df_dups.shape[0]>0:
+            n =  len(list(dupids_mapper.values())) + n
+        else:
+            n = n
 
-    uids = [str(id) for id in df_nodups['sample_id'].unique()]
-    mapid = {}
-    for uid in uids:
-        mapid[uid]= n
-        n += 1
-    df_nodups_wids = df_nodups.copy()
-    df_nodups_wids['uid_idx'] = df_nodups_wids['sample_id'].map(mapid)
-    df_nodups_wids['GP2ID'] = [f'{study_code}_{i:06}' for i in df_nodups_wids.uid_idx]
-    df_nodups_wids['uid_idx_cumcount'] = df_nodups_wids.groupby('GP2ID').cumcount() + 1
-    df_nodups_wids['GP2sampleID'] = df_nodups_wids.GP2ID + '_s' + df_nodups_wids.uid_idx_cumcount.astype('str')
-    df_nodups_wids['SampleRepNo'] = 's' + df_nodups_wids.uid_idx_cumcount.astype('str')
-    df_nodups_wids.drop(['uid_idx','uid_idx_cumcount'], axis = 1, inplace = True)
+        uids = [str(id) for id in df_nodups['sample_id'].unique()]
+        mapid = {}
+        for uid in uids:
+            mapid[uid]= n
+            n += 1
+        df_nodups_wids = df_nodups.copy()
+        df_nodups_wids['uid_idx'] = df_nodups_wids['sample_id'].map(mapid)
+        df_nodups_wids['GP2ID'] = [f'{study_code}_{i:06}' for i in df_nodups_wids.uid_idx]
+        df_nodups_wids['uid_idx_cumcount'] = df_nodups_wids.groupby('GP2ID').cumcount() + 1
+        df_nodups_wids['GP2sampleID'] = df_nodups_wids.GP2ID + '_s' + df_nodups_wids.uid_idx_cumcount.astype('str')
+        df_nodups_wids['SampleRepNo'] = 's' + df_nodups_wids.uid_idx_cumcount.astype('str')
+        df_nodups_wids.drop(['uid_idx','uid_idx_cumcount'], axis = 1, inplace = True)
 
-    if df_dups.shape[0]>0:
-        df_newids = pd.concat([df_dups_wids, df_nodups_wids])
+        if df_dups.shape[0]>0:
+            df_newids = pd.concat([df_dups_wids, df_nodups_wids])
+        else:
+            df_newids = df_nodups_wids
     else:
-        df_newids = df_nodups_wids
+        df_newids = df_dups_wids
     
     return(df_newids)
 
