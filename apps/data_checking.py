@@ -747,6 +747,7 @@ def app():
         st.subheader('Numeric Values')
         numerics_cols = ['DNA_volume', 'DNA_conc', 'r260_280','age', 'age_of_onset', 'age_at_diagnosis', 'age_at_last_follow_up','age_at_death']
         age_cols = ['age', 'age_of_onset', 'age_at_diagnosis']
+        check_cols_message = []
         for v in numerics_cols:
             if df.dtypes[v] not in ['float64', 'int64']:
                 st.error(f'{v} is not numeric')
@@ -759,9 +760,17 @@ def app():
                 st.stop()
             if v in age_cols:
                 if ((df[v] < 20) | (df[v] > 100)).any():
-                    st.error(f'{v} has unexpected high or low values.  Please correct the values we are showing above')
-                    aggridPlotter(df[(df[v] < 20) | (df[v] > 100)][ ['study','study_type','sample_id','clinical_id'] + [v] ])
-                    st.stop()
+                    #st.error(f'{v} has unexpected high or low values. If')
+                    #aggridPlotter(df[(df[v] < 20) | (df[v] > 100)][ ['study','study_type','sample_id','clinical_id'] + [v] ])
+                    #st.stop()
+                    check_cols_message.append(v)
+        
+        if len(check_cols_message)>0:
+            st.warning(f'{check_cols_message} has unexpected high (>100) or low (<20) values. ')
+            st.warning('Please check the data below. If these are errors, fix them, and come back and re-upload the sample manifest')
+            df_check = df[(df[check_cols_message] < 20).any(axis=1) | (df[check_cols_message] > 100).any(axis=1)][ ['sample_id','clinical_id'] + check_cols_message].copy()
+            aggridPlotter(df_check)
+            
 
         st.text('Numeric chek --> OK.')
         st.text('You can check the distribution with the button below')
