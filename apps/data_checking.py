@@ -41,7 +41,7 @@ def app():
     data_file = st.sidebar.file_uploader("Upload Your Sample manifest (CSV/XLSX)", type=['xlsx', 'csv'])
     studycode = get_studycode()
     choice = st.sidebar.selectbox("Genotyping site", 
-                                  ["For Fulgent", "For Psomagen", "For NIH", "For LGC", "For UCL", "For DZNE"],
+                                  ["For Fulgent", "For Psomagen", "For NIH", "For LGC", "For UCL", "For DZNE", "For CIDR"],
                                   index=None)
 
     ph_conf = ''
@@ -114,7 +114,7 @@ def app():
         else:
             st.markdown("**Genotyping_site** successfully added to the sample manifest")
         
-        if choice in ['For Fulgent', 'For Psomagen']:
+        if choice in ['For Fulgent', 'For Psomagen', 'For CIDR']:
             required_cols = required_cols + fulgent_cols
         if choice=='For NIH':
             required_cols = required_cols + ['Plate_name', 'Plate_position']
