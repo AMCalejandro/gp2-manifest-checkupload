@@ -60,7 +60,7 @@ def app():
                      'study_arm', 'diagnosis', 'sex']
     fulgent_cols = ['DNA_volume', 'DNA_conc', 'Plate_name', 'Plate_position']
     #monogenic_cols = ['family_index', 'family_index_relationship', 'age_of_onset', 'family_history_pd', 'family_history_pd_details']
-    monogenic_cols = ['age_of_onset', 'family_history_pd']
+    #monogenic_cols = ['age_of_onset', 'family_history_pd']
 
     # Column values
     gptwo_phenos = ['PD', 'Control', 'Prodromal',
@@ -153,10 +153,10 @@ def app():
         
         # Check monogenic required cols have no na
         if 'Monogenic' in df['study_type'].unique():
-            df_mono_non_miss_check = df[df['study_type'] == 'Monogenic'][['sample_id','clinical_id'] + monogenic_cols].copy()
+            df_mono_non_miss_check = df[df['study_type'] == 'Monogenic'][['sample_id','clinical_id','family_history_pd']].copy()
             if df_mono_non_miss_check.isna().sum().sum()>0:
                 st.error('There are some missing entries in the required columns for monogenic data. ')
-                st.error('Please fill family_history_pd and age_of_onset columns for all monogenic samples in the manifest')
+                st.error('Please fill family_history_pd columnd for all monogenic samples in the manifest')
                 st.text('First 30 entries with missing data in any required fields')
                 st.write(df_mono_non_miss_check[df_mono_non_miss_check.isna().sum(1)>0].head(30))
                 st.stop()
@@ -770,7 +770,23 @@ def app():
             st.warning('Please check the data below. If these are errors, fix them, and come back and re-upload the sample manifest')
             df_check = df[(df[check_cols_message] < 20).any(axis=1) | (df[check_cols_message] > 100).any(axis=1)][ ['sample_id','clinical_id'] + check_cols_message].copy()
             aggridPlotter(df_check)
-            
+
+
+        # Do one last check for monogenic samples and AAO.
+        # For Monogenic cases, we need to check AAO is not missing
+        # We decide to do this at the very end, after we have derived a standard 'GP2_phenotype_for_qc' variable
+        if 'Monogenic' in df['study_type'].unique():
+            df_mono_aao_miss_check = df[(df['study_type'] == 'Monogenic') & (df['GP2_phenotype_for_qc'] == 'PD')][['sample_id','clinical_id','age_of_onset']].copy()
+            if df_mono_aao_miss_check.isna().sum().sum()>0:
+                st.text('Checking AAO for PD monogenic samples...')
+                st.error('There are some missing entries in the required columns for monogenic data. ')
+                st.error('Please fill age_of_onset column for all PD monogenic samples in the manifest')
+                st.text('First 30 entries with missing data in any required fields')
+                st.write(df_mono_aao_miss_check[df_mono_aao_miss_check.isna().sum(1)>0].head(30))
+                st.stop()
+            else:
+                st.text('Check no missing data in AAO for PD monogenic samples --> OK')
+
 
         st.text('Numeric chek --> OK.')
         st.text('You can check the distribution with the button below')
