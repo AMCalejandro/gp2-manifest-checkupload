@@ -239,178 +239,178 @@ def app():
         # DESCRIPTION
         # MONOGENIC SAMPLES ARE ALREADY IN OUR SYSTEM
         # IN ORDER TO INCORPORATE THEM IN THE SYSTEM, WE WILL ACCESS THE JSON, AND WE WILL FILL UP THE SAMPLE MANIFESTS WITH ALREADY ASSIGNED GP2 IDS
-        # st.subheader('Find existing GP2 IDs for monogenic samples')
-        # if st.session_state['master_get'] == None:
-        #     studynames = list(df['study'].unique())
-        #     ids_tracker = generategp2ids.master_keyv2(studies = studynames)
-        #     study_tracker = ids_tracker[studycode]
-        #     st.write(study_tracker)
-        #     sampleid_gp2id = {key: value[0] for key, value in study_tracker.items()}
-            
-        #     df['GP2sampleID'] = df['sample_id'].map(sampleid_gp2id)
-        #     df[['GP2ID', 'SampleRepNo']] = df['GP2sampleID'].str.split('_', expand=True)[[0, 2]]
-        #     df = df[['GP2sampleID', 'GP2ID', 'SampleRepNo'] + [col for col in df.columns if col not in ['GP2sampleID', 'GP2ID', 'SampleRepNo']]]
-
-        #     missing_gp2ids = df[df['GP2sampleID'].isnull()].copy()
-        #     if missing_gp2ids.empty:
-        #         st.write("We have been able to find all GP2 IDs for the input sample IDs")
-        #         st.write("GP2 IDs assignment --> OK")
-        #         st.session_state['df_finalids'] = df
-        #         st.session_state['master_get'] = 'DONE'
-        #     else:
-        #         st.write(" We have detectec a problem looking for GP2 samples IDs for the sample manifest loaded")
-        #         st.write("Showing below the samples that should be in our system but are not")
-        #         aggridPlotter(missing_gp2ids[['study','study_type','sample_id','clinical_id']])
-        #         st.stop()
-        
-        # else:
-        #     df = st.session_state['df_finalids']
-
-        # GP2 IDs assignment
-        jumptwice()
-        st.subheader('GP2 IDs assignment...')
-        if st.session_state['master_get'] == None: # TO ONLY RUN ONCE
+        st.subheader('Find existing GP2 IDs for monogenic samples')
+        if st.session_state['master_get'] == None:
             studynames = list(df['study'].unique())
             ids_tracker = generategp2ids.master_keyv2(studies = studynames)
+            study_tracker = ids_tracker[studycode]
+            st.write(study_tracker)
+            sampleid_gp2id = {key: value[0] for key, value in study_tracker.items()}
             
-            # # Check if this is another QC run of a sample manifest
-            all_sids = []
-            for v in ids_tracker.values():
-                all_sids = all_sids + list(v.keys())
-            if len(np.setdiff1d(df['sample_id'].to_list(), all_sids)) == 0:
-                st.error("It seems that you are trying to QC the same sample manifest again")
-                st.error("Please, contact us on cohort@gp2.org and explain your situation")
+            df['GP2sampleID'] = df['sample_id'].map(sampleid_gp2id)
+            df[['GP2ID', 'SampleRepNo']] = df['GP2sampleID'].str.split('_', expand=True)[[0, 2]]
+            df = df[['GP2sampleID', 'GP2ID', 'SampleRepNo'] + [col for col in df.columns if col not in ['GP2sampleID', 'GP2ID', 'SampleRepNo']]]
+
+            missing_gp2ids = df[df['GP2sampleID'].isnull()].copy()
+            if missing_gp2ids.empty:
+                st.write("We have been able to find all GP2 IDs for the input sample IDs")
+                st.write("GP2 IDs assignment --> OK")
+                st.session_state['df_finalids'] = df
+                st.session_state['master_get'] = 'DONE'
+            else:
+                st.write(" We have detectec a problem looking for GP2 samples IDs for the sample manifest loaded")
+                st.write("Showing below the samples that should be in our system but are not")
+                aggridPlotter(missing_gp2ids[['study','study_type','sample_id','clinical_id']])
                 st.stop()
-            #     if st.button("Start QC again"):
-            #         ids_tracker = generategp2ids.master_remove(studynames, df)
-            #         st.experimental_rerun()
-            #     st.stop()
-            study_subsets = []
-            log_new = []
-            df['GP2sampleID'] = None
-            for study in studynames:
-                st.write(f"Getting GP2IDs for {study} samples")
-                df_subset = df[df.study==study].copy()
-                try:
-                    #study_tracker = st.session_state['store_tracker'][study]
-                    study_tracker = ids_tracker[study]
-                    study_tracker_df = pd.DataFrame.from_dict(study_tracker,
-                                                            orient='index',
-                                                            columns = ['master_GP2sampleID','clinical_id'])\
-                                                    .rename_axis('master_sample_id').reset_index()\
-                                                    .astype(str)
-
-                    # Check if any sample ID exists in df_subset.
-                    sample_id_unique = pd.merge(study_tracker_df, df_subset,
-                                                left_on=['master_sample_id'], right_on=['sample_id'], how='inner')
-                    if not sample_id_unique.empty:
-                        st.error('We have detected sample ids submitted on previous versions')
-                        st.error('Please, correct these sample IDs so that they are unique and resubmit the sample manifest.')
-                        st.error('If this is an attempt to re QC a sample manifest, please contact us on cohort@gp2.org')
-                        sample_id_unique = sample_id_unique.rename(columns={"clinical_id_y": "clinical_id"})
-                        st.dataframe(
-                        sample_id_unique[['study','sample_id','clinical_id']].style.set_properties(**{"background-color": "brown", "color": "lawngreen"})
-                        )
-                        stopapp=True
-                    else:
-                        stopapp=False
-                except:
-                    study_tracker = None
-                    stopapp = False
-                if stopapp:
-                    st.stop()
-
-                if bool(study_tracker):
-                    # WORK ON DUPLICATED IDS
-                    df_subset = df_subset.reset_index()
-                    data_duplicated = pd.merge(df_subset, study_tracker_df, on=['clinical_id'], how='inner')
-                    df_subset = df_subset.set_index('index')
-                    df_subset.index.name = None
-
-                    if data_duplicated.shape[0]>0:
-                        new_clinicaldups = True
-                        newids_clinicaldups = data_duplicated.groupby('clinical_id')\
-                                                        .apply(lambda x: generategp2ids.assign_unique_gp2clinicalids(df_subset,x))
-
-                        if newids_clinicaldups.shape[0]>0:
-                            newids_clinicaldups = newids_clinicaldups.reset_index(drop=True)[['study','clinical_id','sample_id','GP2sampleID']]
-                            log_new.append(newids_clinicaldups)
-                    else:
-                        new_clinicaldups = False
-                        newids_clinicaldups = pd.DataFrame()
-
-                    # GET GP2 IDs METADATA for new CLINICAL-SAMPLE ID pairs
-                    df_newids = df_subset[df_subset['GP2sampleID'].isnull()].reset_index(drop = True).copy()
-                    if not df_newids.empty: # Get new GP2 IDs
-                        df_wids = df_subset[~df_subset['GP2sampleID'].isnull()].reset_index(drop = True).copy()
-                        df_wids['GP2ID'] = df_wids['GP2sampleID'].apply(lambda x: ("_").join(x.split("_")[:-1]))
-                        df_wids['SampleRepNo'] = df_wids['GP2sampleID'].apply(lambda x: x.split("_")[-1])#.replace("s",""))
-
-                        n=int(max(study_tracker_df['master_GP2sampleID'].to_list()).split("_")[1])+1
-                        df_newids = generategp2ids.getgp2idsv2(df_newids, n, study)
-                        df_subset = pd.concat([df_newids, df_wids], axis = 0)
-                        study_subsets.append(df_subset)
-                        log_new.append(df_newids[['study','clinical_id','sample_id','GP2sampleID']])
-
-                    else: # TO CONSIDER THE CASE IN WHICH WE ONLY HAD DUPLICATE IDS MAPPED ON THE MASTER FILE
-                        df_subset['GP2ID'] = df_subset['GP2sampleID'].apply(lambda x: ("_").join(x.split("_")[:-1]))
-                        df_subset['SampleRepNo'] = df_subset['GP2sampleID'].apply(lambda x: x.split("_")[-1])#.replace("s",""))
-                        study_subsets.append(df_subset)
-
-                # Brand new data - NO STUDY TRACKER FOR THIS COHORT
-                else:
-                    study = study
-                    new_clinicaldups = False # Duplicates from master key json are treated differently to brand new data
-                    n = 1
-                    df_newids = generategp2ids.getgp2idsv2(df_subset, n, study)
-                    study_subsets.append(df_newids)
-
-
-                # CODE TO UPDATE THE GET FILE WE WILL USE TO UPDATE MASTER JSON
-                if (new_clinicaldups) and (newids_clinicaldups.shape[0]>0):
-                    tmp = pd.concat([df_newids[['study','clinical_id','sample_id','GP2sampleID']], newids_clinicaldups])
-                    tmp['master_value'] = list(zip(tmp['GP2sampleID'],
-                                                    tmp['clinical_id']))
-                    ids_log = tmp.groupby('study').apply(lambda x: dict(zip(x['sample_id'],
-                                                                            x['master_value']))).to_dict()
-                else:
-                    df_update_master = df_newids.copy()
-                    df_update_master['master_value'] = list(zip(df_update_master['GP2sampleID'],
-                                                            df_update_master['clinical_id']))
-                    ids_log = df_update_master.groupby('study').apply(lambda x: dict(zip(x['sample_id'],
-                                                                                    x['master_value']))).to_dict()
-
-                #if st.session_state['master_get'] == None:
-                if (isinstance(st.session_state['all_ids'], list)):
-                    st.session_state['all_ids'].append( [ids_log, study_tracker] )
-                if st.session_state['all_ids'] == None:
-                    st.session_state['all_ids'] = [ [ids_log, study_tracker] ]
-
-            # OUT OF FOR LOOP // END OF GP2 IDS ASSIGNMENT. LET'S RESUME df.
-            df = pd.concat(study_subsets, axis = 0)
-            df = df[list(df)[-3:] + list(df)[:-3]]
-            st.write("GP2 IDs assignment... OK")
-
-            #if st.session_state['master_get'] == None:
-            if len(log_new) > 0:
-                allnew = pd.concat(log_new, axis = 0).reset_index(drop=True)
-                st.write("Thanks for uploading a new version of the sample manifest")
-                st.write(f'We have detected a total of {allnew.shape[0]} new samples')
-                st.write("We have assigned new GP2IDs to those. Showing them below...")
-                st.dataframe(
-                allnew.style.set_properties(**{"background-color": "brown", "color": "lawngreen"})
-                #allnew.style.set_properties(**{"background-color": "brown", "color": "lawngreen"})
-                )
-            st.session_state['df_finalids'] = df
-            st.session_state['master_get'] = 'DONE'
-
+        
         else:
             df = st.session_state['df_finalids']
-            #TODO
-            #There is the scenario in which genotyping site or study is changed after assigning GP2 IDs
-            # In this scenario, study and genotyping site variables would differ between df and st.session_state['df_finalids']
-            # GP2 IDs would refer to the wrong sudy as well
-            # We should add some code to consider this scenario
+
+        # GP2 IDs assignment
+        # jumptwice()
+        # st.subheader('GP2 IDs assignment...')
+        # if st.session_state['master_get'] == None: # TO ONLY RUN ONCE
+        #     studynames = list(df['study'].unique())
+        #     ids_tracker = generategp2ids.master_keyv2(studies = studynames)
+            
+        #     # # Check if this is another QC run of a sample manifest
+        #     all_sids = []
+        #     for v in ids_tracker.values():
+        #         all_sids = all_sids + list(v.keys())
+        #     if len(np.setdiff1d(df['sample_id'].to_list(), all_sids)) == 0:
+        #         st.error("It seems that you are trying to QC the same sample manifest again")
+        #         st.error("Please, contact us on cohort@gp2.org and explain your situation")
+        #         st.stop()
+        #     #     if st.button("Start QC again"):
+        #     #         ids_tracker = generategp2ids.master_remove(studynames, df)
+        #     #         st.experimental_rerun()
+        #     #     st.stop()
+        #     study_subsets = []
+        #     log_new = []
+        #     df['GP2sampleID'] = None
+        #     for study in studynames:
+        #         st.write(f"Getting GP2IDs for {study} samples")
+        #         df_subset = df[df.study==study].copy()
+        #         try:
+        #             #study_tracker = st.session_state['store_tracker'][study]
+        #             study_tracker = ids_tracker[study]
+        #             study_tracker_df = pd.DataFrame.from_dict(study_tracker,
+        #                                                     orient='index',
+        #                                                     columns = ['master_GP2sampleID','clinical_id'])\
+        #                                             .rename_axis('master_sample_id').reset_index()\
+        #                                             .astype(str)
+
+        #             # Check if any sample ID exists in df_subset.
+        #             sample_id_unique = pd.merge(study_tracker_df, df_subset,
+        #                                         left_on=['master_sample_id'], right_on=['sample_id'], how='inner')
+        #             if not sample_id_unique.empty:
+        #                 st.error('We have detected sample ids submitted on previous versions')
+        #                 st.error('Please, correct these sample IDs so that they are unique and resubmit the sample manifest.')
+        #                 st.error('If this is an attempt to re QC a sample manifest, please contact us on cohort@gp2.org')
+        #                 sample_id_unique = sample_id_unique.rename(columns={"clinical_id_y": "clinical_id"})
+        #                 st.dataframe(
+        #                 sample_id_unique[['study','sample_id','clinical_id']].style.set_properties(**{"background-color": "brown", "color": "lawngreen"})
+        #                 )
+        #                 stopapp=True
+        #             else:
+        #                 stopapp=False
+        #         except:
+        #             study_tracker = None
+        #             stopapp = False
+        #         if stopapp:
+        #             st.stop()
+
+        #         if bool(study_tracker):
+        #             # WORK ON DUPLICATED IDS
+        #             df_subset = df_subset.reset_index()
+        #             data_duplicated = pd.merge(df_subset, study_tracker_df, on=['clinical_id'], how='inner')
+        #             df_subset = df_subset.set_index('index')
+        #             df_subset.index.name = None
+
+        #             if data_duplicated.shape[0]>0:
+        #                 new_clinicaldups = True
+        #                 newids_clinicaldups = data_duplicated.groupby('clinical_id')\
+        #                                                 .apply(lambda x: generategp2ids.assign_unique_gp2clinicalids(df_subset,x))
+
+        #                 if newids_clinicaldups.shape[0]>0:
+        #                     newids_clinicaldups = newids_clinicaldups.reset_index(drop=True)[['study','clinical_id','sample_id','GP2sampleID']]
+        #                     log_new.append(newids_clinicaldups)
+        #             else:
+        #                 new_clinicaldups = False
+        #                 newids_clinicaldups = pd.DataFrame()
+
+        #             # GET GP2 IDs METADATA for new CLINICAL-SAMPLE ID pairs
+        #             df_newids = df_subset[df_subset['GP2sampleID'].isnull()].reset_index(drop = True).copy()
+        #             if not df_newids.empty: # Get new GP2 IDs
+        #                 df_wids = df_subset[~df_subset['GP2sampleID'].isnull()].reset_index(drop = True).copy()
+        #                 df_wids['GP2ID'] = df_wids['GP2sampleID'].apply(lambda x: ("_").join(x.split("_")[:-1]))
+        #                 df_wids['SampleRepNo'] = df_wids['GP2sampleID'].apply(lambda x: x.split("_")[-1])#.replace("s",""))
+
+        #                 n=int(max(study_tracker_df['master_GP2sampleID'].to_list()).split("_")[1])+1
+        #                 df_newids = generategp2ids.getgp2idsv2(df_newids, n, study)
+        #                 df_subset = pd.concat([df_newids, df_wids], axis = 0)
+        #                 study_subsets.append(df_subset)
+        #                 log_new.append(df_newids[['study','clinical_id','sample_id','GP2sampleID']])
+
+        #             else: # TO CONSIDER THE CASE IN WHICH WE ONLY HAD DUPLICATE IDS MAPPED ON THE MASTER FILE
+        #                 df_subset['GP2ID'] = df_subset['GP2sampleID'].apply(lambda x: ("_").join(x.split("_")[:-1]))
+        #                 df_subset['SampleRepNo'] = df_subset['GP2sampleID'].apply(lambda x: x.split("_")[-1])#.replace("s",""))
+        #                 study_subsets.append(df_subset)
+
+        #         # Brand new data - NO STUDY TRACKER FOR THIS COHORT
+        #         else:
+        #             study = study
+        #             new_clinicaldups = False # Duplicates from master key json are treated differently to brand new data
+        #             n = 1
+        #             df_newids = generategp2ids.getgp2idsv2(df_subset, n, study)
+        #             study_subsets.append(df_newids)
+
+
+        #         # CODE TO UPDATE THE GET FILE WE WILL USE TO UPDATE MASTER JSON
+        #         if (new_clinicaldups) and (newids_clinicaldups.shape[0]>0):
+        #             tmp = pd.concat([df_newids[['study','clinical_id','sample_id','GP2sampleID']], newids_clinicaldups])
+        #             tmp['master_value'] = list(zip(tmp['GP2sampleID'],
+        #                                             tmp['clinical_id']))
+        #             ids_log = tmp.groupby('study').apply(lambda x: dict(zip(x['sample_id'],
+        #                                                                     x['master_value']))).to_dict()
+        #         else:
+        #             df_update_master = df_newids.copy()
+        #             df_update_master['master_value'] = list(zip(df_update_master['GP2sampleID'],
+        #                                                     df_update_master['clinical_id']))
+        #             ids_log = df_update_master.groupby('study').apply(lambda x: dict(zip(x['sample_id'],
+        #                                                                             x['master_value']))).to_dict()
+
+        #         #if st.session_state['master_get'] == None:
+        #         if (isinstance(st.session_state['all_ids'], list)):
+        #             st.session_state['all_ids'].append( [ids_log, study_tracker] )
+        #         if st.session_state['all_ids'] == None:
+        #             st.session_state['all_ids'] = [ [ids_log, study_tracker] ]
+
+        #     # OUT OF FOR LOOP // END OF GP2 IDS ASSIGNMENT. LET'S RESUME df.
+        #     df = pd.concat(study_subsets, axis = 0)
+        #     df = df[list(df)[-3:] + list(df)[:-3]]
+        #     st.write("GP2 IDs assignment... OK")
+
+        #     #if st.session_state['master_get'] == None:
+        #     if len(log_new) > 0:
+        #         allnew = pd.concat(log_new, axis = 0).reset_index(drop=True)
+        #         st.write("Thanks for uploading a new version of the sample manifest")
+        #         st.write(f'We have detected a total of {allnew.shape[0]} new samples')
+        #         st.write("We have assigned new GP2IDs to those. Showing them below...")
+        #         st.dataframe(
+        #         allnew.style.set_properties(**{"background-color": "brown", "color": "lawngreen"})
+        #         #allnew.style.set_properties(**{"background-color": "brown", "color": "lawngreen"})
+        #         )
+        #     st.session_state['df_finalids'] = df
+        #     st.session_state['master_get'] = 'DONE'
+
+        # else:
+        #     df = st.session_state['df_finalids']
+        #     #TODO
+        #     #There is the scenario in which genotyping site or study is changed after assigning GP2 IDs
+        #     # In this scenario, study and genotyping site variables would differ between df and st.session_state['df_finalids']
+        #     # GP2 IDs would refer to the wrong sudy as well
+        #     # We should add some code to consider this scenario
 
 
         # Plot the data
@@ -811,10 +811,10 @@ def app():
             else:
                 # Update json file with master IDs
                 #generategp2ids.update_masterids(ids_log, study_tracker)
-                for idslog_tracker in st.session_state['all_ids']:
-                   generategp2ids.update_masterids(idslog_tracker[0], idslog_tracker[1], studycode)
+                # for idslog_tracker in st.session_state['all_ids']:
+                #    generategp2ids.update_masterids(idslog_tracker[0], idslog_tracker[1], studycode)
 
-                email_ellie(studycode = studycode, activity = 'qc')
+                # email_ellie(studycode = studycode, activity = 'qc')
                     
                 df = df.reset_index(drop=True)
                 df['CustomOrder'] = df['sample_id'].apply(lambda x: original_order.index(x))
